@@ -1045,14 +1045,8 @@ window.GameCore = window.GameCore || {
       this._bossSpawned = false; this._bossDead = false;
       this.score += 500;
       if (window.UI) UI.banner("☠ 보스 처치! (" + (this.bossLevel - 1) + "/3)", "LV." + this.bossLevel + " 보스가 기다립니다 — 웨이브 계속!", 2000);
-    } else if (this.kills >= this.totalEnemies && !this._bossSpawned && (this.bossLevel || 1) === 1) {
-      // 첫 보스 웨이브 소환 (1회)
-      this.state = "play";
-      try { this.canvas.requestPointerLock(); } catch (_) {}
-      this.spawnBossWave();
-      return;
     }
-    // 다음 웨이브 (구역 축소 + 난이도 상승 / 5웨이브마다 보스)
+    // 다음 웨이브 (구역 축소 + 난이도 상승 / 5·10·15웨이브에 1·2·3번 보스)
     this.wave = (this.wave || 1) + 1;
     this.zone.target = Math.max(16, this.zone.target * 0.88);
     this.state = "play";
