@@ -308,11 +308,20 @@ window.GameCore = window.GameCore || {
       h.position.set((Math.random() - 0.5) * 180, 0.8, (Math.random() - 0.5) * 180);
       h.castShadow = true; this.scene.add(h);
     }
-    // 안전구역 링
+    // 안전구역 링 (흰색=현재) + 다음 구역 링 (파랑=타겟) + 배그식 파란 자기장 벽
     const zg = new THREE.RingGeometry(1, 1.06, 96);
     this.zoneRing = new THREE.Mesh(zg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
     this.zoneRing.rotation.x = -Math.PI / 2; this.zoneRing.position.y = 0.06;
     this.scene.add(this.zoneRing);
+    const tg = new THREE.RingGeometry(1, 1.03, 96);
+    this.zoneTargetRing = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ color: 0x4da3ff, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    this.zoneTargetRing.rotation.x = -Math.PI / 2; this.zoneTargetRing.position.y = 0.07;
+    this.scene.add(this.zoneTargetRing);
+    const wg = new THREE.CylinderGeometry(1, 1, 26, 96, 1, true);
+    this.zoneWall = new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ color: 0x2f80ed, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+    this.zoneWall.position.y = 13;
+    this.zoneWall.renderOrder = 5;
+    this.scene.add(this.zoneWall);
     this.zone = { x: 0, z: 0, radius: 110, target: 110 };
     this.updateZoneRing();
   },
@@ -1124,6 +1133,21 @@ window.GameCore = window.GameCore || {
     if (!this.zoneRing || !this.zone) return;
     this.zoneRing.scale.set(this.zone.radius, this.zone.radius, 1);
     this.zoneRing.position.set(this.zone.x, 0.06, this.zone.z);
+    if (this.zoneTargetRing) {
+      const tr = Math.max(0.1, this.zone.target);
+      this.zoneTargetRing.scale.set(tr, tr, 1);
+      this.zoneTargetRing.position.set(this.zone.x, 0.07, this.zone.z);
+    }
+    if (this.zoneWall) {
+      const r = Math.max(0.1, this.zone.radius);
+      this.zoneWall.scale.set(r, 1, r);
+      this.zoneWall.position.set(this.zone.x, 13, this.zone.z);
+      // 배그처럼 살짝 맥동
+      try {
+        const t = performance.now() / 1000;
+        this.zoneWall.material.opacity = 0.24 + 0.07 * Math.sin(t * 2.2);
+      } catch (_) {}
+    }
   },
 
   resize() {
