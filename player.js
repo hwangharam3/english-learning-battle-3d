@@ -513,8 +513,11 @@ window.GameCore = window.GameCore || {
   spawnLootField() {
     const kinds = ["helmet2", "vest2", "medkit", "ammo", "ammo", "ammo", "ammo", "ammo", "scope", "grip", "helmet1", "bag1", "muzzle", "extmag"];
     for (let i = 0; i < 24; i++) {
+      // 초기 자기장(반경 110) 안쪽에 분산
+      const a = Math.random() * Math.PI * 2, d = 8 + Math.random() * 88;
+      const x = Math.max(-105, Math.min(105, Math.cos(a) * d));
+      const z = Math.max(-105, Math.min(105, Math.sin(a) * d));
       const k = kinds[Math.floor(Math.random() * kinds.length)];
-      const x = (Math.random() - 0.5) * 160, z = (Math.random() - 0.5) * 160;
       this.spawnGroundLoot(k, x, z);
     }
     // 시작 지점 주변에 탄약 확정 드롭 (바로 주울 수 있게)
@@ -1087,19 +1090,22 @@ window.GameCore = window.GameCore || {
     }
   },
 
-  // 웨이브 종료 보상: 플레이어 주변 바닥에 탄약 드롭
+  // 웨이브 종료 보상: 자기장(타겟 구역) 안쪽 바닥에 탄약 드롭
   dropWaveAmmo(n) {
+    const cx = this.zone.x, cz = this.zone.z;
+    const safeR = Math.max(3, Math.min(this.zone.radius, this.zone.target) - 3);
     for (let i = 0; i < (n || 5); i++) {
-      const a = Math.random() * Math.PI * 2, d = 4 + Math.random() * 6;
-      let x = Player.x + Math.cos(a) * d, z = Player.z + Math.sin(a) * d;
-      x = Math.max(-110, Math.min(110, x)); z = Math.max(-110, Math.min(110, z));
-      if (!this.isFree(x, z, 0.6)) {
-        const p = this.ringPos(8);
-        x = p.x; z = p.z;
+      let x = cx, z = cz, ok = false;
+      for (let t = 0; t < 8; t++) {
+        const a = Math.random() * Math.PI * 2, d = 2 + Math.random() * Math.max(1, safeR - 2);
+        const tx = Math.max(-110, Math.min(110, cx + Math.cos(a) * d));
+        const tz = Math.max(-110, Math.min(110, cz + Math.sin(a) * d));
+        if (this.isFree(tx, tz, 0.6)) { x = tx; z = tz; ok = true; break; }
       }
+      if (!ok) continue;
       this.spawnGroundLoot("ammo", x, z);
     }
-    if (window.UI) UI.toast("🔸 탄약이 주변에 떨어졌습니다!");
+    if (window.UI) UI.toast("🔸 자기장 안에 탄약이 떨어졌습니다!");
   },
 
   next() {
@@ -1488,6 +1494,14 @@ window.GameCore = window.GameCore || {
         // 존 축소
         this.zone.radius += (this.zone.target - this.zone.radius) * Math.min(1, dt * 0.08);
         this.updateZoneRing();
+        // 자기장 밖 아이템은 전부 제거
+        for (let i = this.loots.length - 1; i >= 0; i--) {
+          const l = this.loots[i];
+          if (Math.hypot(l.x - this.zone.x, l.z - this.zone.z) > this.zone.radius) {
+            this.scene.remove(l.group);
+            this.loots.splice(i, 1);
+          }
+        }
         // 존 밖 데미지
         const dz = Math.hypot(Player.x - this.zone.x, Player.z - this.zone.z);
         if (dz > this.zone.radius) {
