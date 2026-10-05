@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>영어 학습 배틀 3D — PUBG 스타일</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0e141b;
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+  #game3d{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:2;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45) 100%)}
+  #damage-flash{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 42%,rgba(220,20,20,.6) 100%);
+    box-shadow:inset 0 0 110px 34px rgba(255,30,30,.85);transition:opacity .15s}
+  #heal-flash{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;
+    background:radial-gradient(ellipse at center,transparent 50%,rgba(60,255,140,.35) 100%);transition:opacity .4s}
+  canvas{min-display:block}
+</style>
+</head>
+<body>
+<canvas id="game3d"></canvas>
+<div id="vignette"></div>
+<div id="damage-flash"></div>
+<div id="heal-flash"></div>
+
+<!-- Three.js (전역 THREE, r128 — 모듈 없이 classic script와 호환) : 로컬 우선, CDN 폴백 -->
+<script src="three.min.js"></script>
+<script>
+  if(!window.THREE){
+    var _s=document.createElement("script");
+    _s.src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+    _s.onload=function(){ if(!window.THREE) showThreeFail(); };
+    _s.onerror=function(){ showThreeFail(); };
+    document.head.appendChild(_s);
+  }
+  function showThreeFail(){
+    if(window.THREE) return;
+    document.body.insertAdjacentHTML("beforeend",
+      '<div style="position:fixed;inset:0;display:grid;place-items:center;background:#111;color:#fff;z-index:9999;text-align:center;padding:20px">'
+      +'<div><h2>Three.js 로드 실패</h2><p>three.min.js 파일이 게임 폴더에 있는지 확인해주세요.<br>또는 인터넷 연결 후 새로고침 해주세요.</p></div></div>');
+  }
+</script>
+<script src="player.js"></script>
+<script src="question.js"></script>
+<script src="reward.js"></script>
+<script src="ui.js"></script>
+<script src="weapon.js"></script>
+</body>
+</html>
