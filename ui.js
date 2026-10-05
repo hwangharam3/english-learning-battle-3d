@@ -380,7 +380,7 @@ const UI = {
       <h1>🎯 영어 학습 배틀 <span class="y">3D</span></h1>
       <p><b>BATTLEGROUNDS식 3인칭 슈터 + 영어 문제</b><br>
       좀비 무리를 전멸시킬 때마다 영어 문제가 출제됩니다.<br>
-      정답 → 보급품(헬멧·방어구·부착물·보급총) / 오답 → HP -25</p>
+      정답 → 보급품(헬멧·방어구·부착물·보급총) / 오답 → HP -20</p>
       <div class="ctrl"><kbd>WASD</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>마우스</kbd> 시점 · <kbd>클릭</kbd> 발사 · <kbd>우클릭</kbd> 정조준(조준경)<br>
       <kbd>R</kbd> 재장전 · <kbd>H</kbd> 구급상자 · <kbd>F</kbd> 줍기 · <kbd>Tab</kbd> 장비창 · <kbd>1/2/휠</kbd> 무기교체<br>
       💡 시작 후 화면을 클릭하면 마우스가 잠겨 시점이 돌아갑니다 (<kbd>Esc</kbd> 해제)</div><br>

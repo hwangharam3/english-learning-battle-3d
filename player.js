@@ -4,7 +4,7 @@
    ========================================================= */
 
 window.CONFIG = window.CONFIG || {
-  player: { maxHp: 100, speed: 6.2, runMult: 1.6, radius: 0.6, wrongPenalty: 25, healTime: 1.2 },
+  player: { maxHp: 100, speed: 6.2, runMult: 1.6, radius: 0.6, wrongPenalty: 20, healTime: 1.2 },
   medkit: { heal: 40, useTime: 1.2, maxBase: 2 },
   reward: { boost: 0.30, medkit: 0.22, supplyGun: 0.18, armor: 0.30 },
   weapons: {
