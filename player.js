@@ -622,7 +622,8 @@ window.GameCore = window.GameCore || {
       r: kind === "boss" ? 1.0 : kind === "runner" ? 0.55 : 0.8,
       boss: kind === "boss", runner: kind === "runner", scl: st.scl,
       speed: st.speed, dmg: st.dmg, atkCd: st.atkCd,
-      hitT: Math.random() * 0.5, dead: false, walkT: Math.random() * 5, flash: 0, lunge: 0
+      hitT: Math.random() * 0.5, dead: false, walkT: Math.random() * 5, flash: 0, lunge: 0,
+      stuckT: 0, detourT: 0, detourDir: 1
     };
     e.group = window.Enemy ? Enemy.buildMesh(e) : null;
     if (e.group) { e.group.position.set(x, 0, z); this.scene.add(e.group); }
@@ -657,6 +658,51 @@ window.GameCore = window.GameCore || {
     if (window.UI) UI.banner("☠ 거대 좀비", "보스를 쓰러뜨리면 마지막 영어 문제!", 1600);
   },
 
+  /* 장애물 우회 이동: 직진이 막히면 각도를 틀어 돌아감 */
+  moveZombie(e, dx, dz, d, dt) {
+    const step = e.speed * dt;
+    if (step <= 0.0001 || d <= 0.001) return;
+    const bx = dx / d, bz = dz / d;
+    if (e.detourT > 0) e.detourT -= dt;
+    // 우회 중이면 우회 방향을 우선 시도
+    const s = e.detourDir || 1;
+    const angs = e.detourT > 0
+      ? [0.9 * s, 0.45 * s, 1.5 * s, 0, -0.45 * s, -0.9 * s, 2.2 * s, -2.2 * s]
+      : [0, 0.45, -0.45, 0.9, -0.9, 1.5, -1.5, 2.2, -2.2];
+    let best = null, bestDist = Infinity, bestMoved = 0;
+    for (let k = 0; k < angs.length; k++) {
+      const a = angs[k], ca = Math.cos(a), sa = Math.sin(a);
+      const rx = bx * ca - bz * sa, rz = bx * sa + bz * ca;
+      const nx = e.x + rx * step, nz = e.z + rz * step;
+      const c = this.collide(nx, nz, e.r * 0.6);
+      const moved = Math.hypot(c.x - e.x, c.z - e.z);
+      if (moved < step * 0.25) continue; // 거의 막힌 방향은 제외
+      const nd = Math.hypot(Player.x - c.x, Player.z - c.z);
+      // 직진 가중치: 돌아가는 각도가 클수록 패널티
+      const score = nd + Math.abs(a) * 1.2;
+      if (score < bestDist) { bestDist = score; best = c; bestMoved = moved; }
+      if (a === 0 && nd < d) break; // 직진이 잘 되면 바로 사용
+    }
+    if (best) {
+      e.x = best.x; e.z = best.z;
+      e.stuckT = Math.max(0, (e.stuckT || 0) - dt * 2);
+      // 우회 성공 후에는 우회 타이머 서서히 해제 (detourT는 위에서 감소)
+    } else {
+      // 모든 방향이 막힘 → 제자리에서 stuck 누적, 일정 시간 후 우회 방향 전환
+      e.stuckT = (e.stuckT || 0) + dt;
+      if (e.stuckT > 0.5) {
+        e.stuckT = 0;
+        e.detourT = 0.9;
+        e.detourDir = (e.detourDir || 1) > 0 ? -1 : 1;
+        if (Math.random() < 0.35) e.detourDir = Math.random() < 0.5 ? -1 : 1;
+      } else {
+        // 살짝이라도 움직여 보기 (최소 이동)
+        const c = this.collide(e.x + bx * step * 0.3, e.z + bz * step * 0.3, e.r * 0.6);
+        e.x = c.x; e.z = c.z;
+      }
+    }
+  },
+
   updateHorde(dt) {
     const pack = this.horde || [];
     // 좀비끼리 겹치지 않게 밀어내기
@@ -680,9 +726,7 @@ window.GameCore = window.GameCore || {
       const d = Math.hypot(dx, dz) || 1;
       e.walkT += dt * (5 + e.speed * 0.7);
       if (d > CONFIG.enemies.attackRange) {
-        const nx = e.x + dx / d * e.speed * dt, nz = e.z + dz / d * e.speed * dt;
-        const c = this.collide(nx, nz, e.r * 0.6);
-        e.x = c.x; e.z = c.z;
+        this.moveZombie(e, dx, dz, d, dt);
       } else {
         // 일정 거리 안에 들어오면 공격
         e.hitT -= dt;
