@@ -116,7 +116,10 @@ const Weapon = {
     if ((game.state !== "play" && game.state !== "tutorial") || Player.hp <= 0) return;
     const s = this.stats();
     const modalOpen = document.getElementById("question-panel") || document.getElementById("reward-panel") || document.getElementById("tut-complete");
-    const wantFire = s.auto ? Input.mouse.down : Input.consumeClick();
+    // 발사: 마우스 클릭 또는 키보드 ↑ (연발은 누르고 있기, 단발은 한 번씩 누르기)
+    const kbAuto = Input.down("arrowup");
+    const kbSemi = Input.consume("arrowup");
+    const wantFire = s.auto ? (Input.mouse.down || kbAuto) : (Input.consumeClick() || kbSemi);
     if (modalOpen) return;
     if (game.state === "tutorial" && !game.tutAllowFire) {
       if (wantFire && game.tutLockedToast) game.tutLockedToast("아직 사격 미션이 아닙니다");

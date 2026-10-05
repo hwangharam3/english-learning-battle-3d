@@ -145,7 +145,7 @@ const UI = {
       '<div id="wbox"><div class="wn" id="wname">기본 소총</div>' +
         '<div class="ammo"><span id="mag">12</span><small> / <span id="reserve">90</span></small></div>' +
         '<div class="sub">💊 <span id="med">1</span> · 🔧부스트 <span id="boost">0</span> · <span id="slots">1번</span></div>' +
-        '<div class="hint"><kbd>WASD</kbd> 이동 <kbd>Shift</kbd> 달리기 · 클릭 발사 · 우클릭 정조준<br><kbd>R</kbd> 재장전 <kbd>H</kbd> 구급상자 <kbd>F</kbd> 줍기 <kbd>Tab</kbd> 장비 <kbd>1/2/휠</kbd> 무기교체</div></div>' +
+        '<div class="hint"><kbd>WASD</kbd> 이동 <kbd>Shift</kbd> 달리기 · 클릭/<kbd>↑</kbd> 발사 · 우클릭 정조준 · <kbd>←→</kbd> 시점<br><kbd>R</kbd> 재장전 <kbd>H</kbd> 구급상자 <kbd>F</kbd> 줍기 <kbd>Tab</kbd> 장비 <kbd>1/2/휠</kbd> 무기교체</div></div>' +
       '<div id="minimap-wrap"><canvas id="minimap" width="190" height="190"></canvas>' +
         '<div id="minimap-legend">▲ 플레이어 · <span style="color:#ff6b6b">●</span> 좀비 · <span style="color:#ffd166">●</span> 아이템<br>○ 흰 원 안으로 이동!</div></div>' +
       '<div id="cross"><div class="dot"></div></div>' +
@@ -381,7 +381,7 @@ const UI = {
       <p><b>BATTLEGROUNDS식 3인칭 슈터 + 영어 문제</b><br>
       좀비 무리를 전멸시킬 때마다 영어 문제가 출제됩니다.<br>
       정답 → 보급품(헬멧·방어구·부착물·보급총) / 오답 → HP -20</p>
-      <div class="ctrl"><kbd>WASD</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>마우스</kbd> 시점 · <kbd>클릭</kbd> 발사 · <kbd>우클릭</kbd> 정조준(조준경)<br>
+      <div class="ctrl"><kbd>WASD</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>마우스</kbd>/<kbd>←→</kbd> 시점 · <kbd>클릭</kbd>/<kbd>↑</kbd> 발사 · <kbd>우클릭</kbd> 정조준(조준경)<br>
       <kbd>R</kbd> 재장전 · <kbd>H</kbd> 구급상자 · <kbd>F</kbd> 줍기 · <kbd>Tab</kbd> 장비창 · <kbd>1/2/휠</kbd> 무기교체<br>
       💡 시작 후 화면을 클릭하면 마우스가 잠겨 시점이 돌아갑니다 (<kbd>Esc</kbd> 해제)</div><br>
       <button id="tut-btn" class="tbtn2">🎓 기본 훈련</button><button id="start-btn">전장에 투입!</button>

@@ -1323,6 +1323,10 @@ window.GameCore = window.GameCore || {
     const T = this.tutorial;
     if (!T || !T.active) return;
     T.lookAcc += Math.abs(Input.mouse.dx) + Math.abs(Input.mouse.dy);
+    // 키보드 화살표 시점 회전도 인정 (1rad ≈ 마우스 400px)
+    if (T._lastYaw == null) T._lastYaw = Player.yaw;
+    T.lookAcc += Math.abs(Player.yaw - T._lastYaw) * 400;
+    T._lastYaw = Player.yaw;
     for (const tg of T.targets) {
       if (tg.flash > 0) {
         tg.flash -= dt;
@@ -1703,17 +1707,19 @@ window.Player = window.Player || {
   },
 
   update(dt, game) {
-    // 시점 회전
+    // 시점 회전 (마우스 + 키보드 화살표 좌우)
     const sens = (Input.mouse.rdown ? 0.0016 : 0.0023);
     this.yaw -= Input.mouse.dx * sens;
     this.pitch -= Input.mouse.dy * sens;
+    if (Input.down("arrowleft")) this.yaw += 1.8 * dt;
+    if (Input.down("arrowright")) this.yaw -= 1.8 * dt;
     this.pitch = Math.max(-1.05, Math.min(0.55, this.pitch));
-    // 이동 (카메라 기준)
+    // 이동 (카메라 기준: ↑발사·←→시점이므로 화살표는 ↓후진만 사용)
     let f = 0, s = 0;
-    if (Input.down("w") || Input.down("arrowup")) f += 1;
+    if (Input.down("w")) f += 1;
     if (Input.down("s") || Input.down("arrowdown")) f -= 1;
-    if (Input.down("a") || Input.down("arrowleft")) s -= 1;
-    if (Input.down("d") || Input.down("arrowright")) s += 1;
+    if (Input.down("a")) s -= 1;
+    if (Input.down("d")) s += 1;
     const running = Input.down("shift");
     const sp = CONFIG.player.speed * (running ? CONFIG.player.runMult : 1) * (this.healT > 0 ? 0.5 : 1);
     // 관성: 목표 속도로 점진 가속/감속 (즉시 정지·출발 금지)
