@@ -15,7 +15,7 @@ window.CONFIG = window.CONFIG || {
   helmetRed: [0, 0.30, 0.40, 0.55],
   vestRed:   [0, 0.25, 0.35, 0.50],
   bagMedMax: [2, 3, 4, 6],
-  enemies: { normalHp: 90, bossHp: 380, damage: 20, speed: 5.0, bossSpeed: 4.0, attackRange: 2.6, attackCd: 0.7 },
+  enemies: { normalHp: 60, bossHp: 220, damage: 10, speed: 3.6, bossSpeed: 2.8, attackRange: 2.2, attackCd: 1.1 },
   stage: { normalCount: 10 },
   world: { size: 240, half: 118 }
 };
@@ -595,23 +595,23 @@ window.GameCore = window.GameCore || {
     this.rewardsTaken.push(k);
   },
 
-  /* 시간 + 웨이브에 따른 좀비 스탯 (점점 강해짐 — 하드모드 강화판) */
+  /* 시간 + 웨이브에 따른 좀비 스탯 (쉬움 — 천천히 약하게) */
   zombieStats(kind) {
     const t = this.playTime, wv = this.wave || 1;
-    const hpM = (1 + (wv - 1) * 0.35) * (1 + t / 150);
-    const dmgM = Math.min(6.0, (1 + (wv - 1) * 0.35) * (1 + t / 120));
-    const spdB = Math.min(7.0, (wv - 1) * 0.9 + t * 0.028);
-    const atkCd = Math.max(0.35, CONFIG.enemies.attackCd - (wv - 1) * 0.07);
-    if (kind === "boss") return { hp: Math.round(CONFIG.enemies.bossHp * (1 + (wv - 1) * 0.35) * (1 + t / 220)), dmg: CONFIG.enemies.damage * 2.2 * dmgM, speed: CONFIG.enemies.bossSpeed + spdB, atkCd: 0.7, scl: 1.45 };
-    if (kind === "runner") return { hp: Math.round(55 * hpM), dmg: 13 * dmgM, speed: 8.5 + spdB, atkCd: 0.45, scl: 0.62 };
+    const hpM = (1 + (wv - 1) * 0.15) * (1 + t / 300);
+    const dmgM = Math.min(2.5, (1 + (wv - 1) * 0.12) * (1 + t / 300));
+    const spdB = Math.min(2.5, (wv - 1) * 0.3 + t * 0.008);
+    const atkCd = Math.max(0.7, CONFIG.enemies.attackCd - (wv - 1) * 0.04);
+    if (kind === "boss") return { hp: Math.round(CONFIG.enemies.bossHp * (1 + (wv - 1) * 0.15) * (1 + t / 400)), dmg: CONFIG.enemies.damage * 1.6 * dmgM, speed: CONFIG.enemies.bossSpeed + spdB * 0.8, atkCd: 1.0, scl: 1.45 };
+    if (kind === "runner") return { hp: Math.round(35 * hpM), dmg: 7 * dmgM, speed: 6.0 + spdB * 0.7, atkCd: 0.8, scl: 0.62 };
     return { hp: Math.round(CONFIG.enemies.normalHp * hpM), dmg: CONFIG.enemies.damage * dmgM, speed: CONFIG.enemies.speed + spdB, atkCd, scl: 1.0 };
   },
 
   hordeAlive() { return (this.horde || []).filter(z => !z.dead).length; },
 
-  /* 작고 빠른 대시 좀비 출현 확률 (2웨이브부터, 하드모드 상향) */
+  /* 작고 빠른 대시 좀비 출현 확률 (3웨이브부터, 낮은 확률) */
   rollRunner() {
-    return this.wave >= 2 && Math.random() < Math.min(0.55, 0.25 + this.wave * 0.05 + this.playTime / 400);
+    return this.wave >= 3 && Math.random() < Math.min(0.25, 0.08 + this.wave * 0.02 + this.playTime / 800);
   },
 
   spawnOneZombie(x, z, type) {
@@ -638,25 +638,22 @@ window.GameCore = window.GameCore || {
 
   spawnHorde() {
     this._waveCleared = false;
-    this.reinfT = Math.max(5, 16 - this.wave - this.playTime / 30);
-    const n = Math.min(3 + (this.wave - 1) * 2, 12);
+    this.reinfT = Math.max(10, 24 - this.wave - this.playTime / 50);
+    const n = Math.min(2 + (this.wave - 1), 6);
     for (let i = 0; i < n; i++) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, this.rollRunner() ? "runner" : "normal"); }
-    if (this.wave >= 2) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "runner"); }
     if (this.wave >= 4) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "runner"); }
-    if (this.wave >= 6) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, this.rollRunner() ? "runner" : "normal"); }
     const total = this.hordeAlive();
     if (window.UI) UI.banner("🧟 WAVE " + this.wave, "좀비 " + total + "마리가 몰려옵니다!", 1500);
-    if (this.wave >= 2 && window.UI) setTimeout(() => UI.toast("☠ 좀비가 더 강하고 빨라졌습니다!"), 1600);
+    if (this.wave >= 3 && window.UI) setTimeout(() => UI.toast("☠ 시간이 지날수록 좀비가 강해집니다!"), 1600);
   },
 
   spawnBossWave() {
     this._bossSpawned = true;
     this._waveCleared = false;
-    this.reinfT = 14;
+    this.reinfT = 20;
     const pb = this.ringPos(30);
     this.spawnOneZombie(pb.x, pb.z, "boss");
-    for (let i = 0; i < 2; i++) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "normal"); }
-    for (let i = 0; i < 2; i++) { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "runner"); }
+    { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "normal"); }
     if (window.UI) UI.banner("☠ 거대 좀비", "보스를 쓰러뜨리면 마지막 영어 문제!", 1600);
   },
 
@@ -1108,20 +1105,15 @@ window.GameCore = window.GameCore || {
       }
       if (!isTut) {
         this.updateHorde(dt);
-        // 증원: 시간이 지날수록 빨리, 웨이브가 오를수록 많이 몰려옴 (하드모드 상향)
+        // 증원: 천천히 조금씩만 (쉬움)
         this.reinfT -= dt;
         const alive = this.hordeAlive();
-        const cap = Math.min(14, 5 + (this.wave || 1) * 2);
+        const cap = Math.min(7, 3 + (this.wave || 1));
         if (this.reinfT <= 0 && !this._waveCleared && alive > 0 && alive < cap) {
           const p = this.ringPos();
           this.spawnOneZombie(p.x, p.z, this.rollRunner() ? "runner" : "normal");
-          // 고웨이브에서는 한 번에 2마리씩 추가
-          if ((this.wave || 1) >= 4 && alive + 1 < cap) {
-            const p2 = this.ringPos();
-            this.spawnOneZombie(p2.x, p2.z, this.rollRunner() ? "runner" : "normal");
-          }
           if (window.UI) UI.toast("🧟 좀비가 더 몰려옵니다!");
-          this.reinfT = Math.max(4, 14 - (this.wave || 1) - this.playTime / 25);
+          this.reinfT = Math.max(10, 22 - (this.wave || 1) - this.playTime / 50);
         }
         // 존 축소
         this.zone.radius += (this.zone.target - this.zone.radius) * Math.min(1, dt * 0.08);
