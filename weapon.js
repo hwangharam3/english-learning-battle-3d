@@ -207,7 +207,7 @@ const Weapon = {
       let dmg = s.damage * (hitHead ? 2 : 1);
       // 거리 감쇠 (저격총 제외)
       if (w.id !== "supply") dmg *= Math.max(0.6, 1 - hitDist / 160);
-      game.hitEnemy(hitE, Math.round(dmg), hitHead);
+      game.hitEnemy(hitE, Math.round(dmg), hitHead, camDir);
     } else if (hitTut && game.registerTutHit) {
       game.registerTutHit(hitTut, hitDist);
     } else {

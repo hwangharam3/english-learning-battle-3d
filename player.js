@@ -645,6 +645,7 @@ window.GameCore = window.GameCore || {
       speed: st.speed, dmg: st.dmg, atkCd: st.atkCd,
       hitT: Math.random() * 0.5, dead: false, walkT: Math.random() * 5, flash: 0, lunge: 0,
       stuckT: 0, detourT: 0, detourDir: 1,
+      yaw: Math.atan2(Player.x - x, Player.z - z), stagger: 0,
       chargeState: "chase", chargeT: 0, chargeCd: 3, chargeDx: 0, chargeDz: 1, chargeHitDone: false, _tele: null,
       summonCd: 5, laserState: "idle", laserT: 0, laserCd: 4, laserDx: 0, laserDz: 1, laserHitCd: 0, _laserTele: null, _beam: null
     };
@@ -654,10 +655,34 @@ window.GameCore = window.GameCore || {
     return e;
   },
 
+  // (x,z)가 장애물과 겹치지 않는지 — 스폰 위치 검증용
+  isFree(x, z, r) {
+    const H = CONFIG.world.half;
+    if (Math.abs(x) > H - 1 || Math.abs(z) > H - 1) return false;
+    for (const c of this.colliders) {
+      if (c.cr) {
+        if (Math.hypot(x - c.x, z - c.z) < c.cr + r + 0.4) return false;
+      } else {
+        if (Math.abs(x - c.x) < c.hw + r + 0.4 && Math.abs(z - c.z) < c.hd + r + 0.4) return false;
+      }
+    }
+    return true;
+  },
+
   ringPos(dist) {
-    const a = Math.random() * Math.PI * 2, d = dist || (26 + Math.random() * 14);
-    let x = Player.x + Math.cos(a) * d, z = Player.z + Math.sin(a) * d;
-    return { x: Math.max(-105, Math.min(105, x)), z: Math.max(-105, Math.min(105, z)) };
+    const d0 = dist || (26 + Math.random() * 14);
+    let fx = 0, fz = 0;
+    for (let t = 0; t < 8; t++) {
+      const a = Math.random() * Math.PI * 2, d = dist || (26 + Math.random() * 14);
+      const x = Math.max(-105, Math.min(105, Player.x + Math.cos(a) * d));
+      const z = Math.max(-105, Math.min(105, Player.z + Math.sin(a) * d));
+      if (this.isFree(x, z, 1.0)) return { x, z };
+      fx = x; fz = z;
+    }
+    // 빈자리를 못 찾으면 가장 가까운 후보를 강제로 밀어냄
+    const c = this.collide(fx, fz, 1.0);
+    void d0;
+    return { x: c.x, z: c.z };
   },
 
   spawnHorde() {
@@ -688,7 +713,9 @@ window.GameCore = window.GameCore || {
 
   /* 장애물 우회 이동: 직진이 막히면 각도를 틀어 돌아감 */
   moveZombie(e, dx, dz, d, dt) {
-    const step = e.speed * dt;
+    // 피격 경직 중에는 45% 속도로 비틀거림
+    if (e.stagger > 0) e.stagger -= dt;
+    const step = e.speed * (e.stagger > 0 ? 0.45 : 1) * dt;
     if (step <= 0.0001 || d <= 0.001) return;
     const bx = dx / d, bz = dz / d;
     if (e.detourT > 0) e.detourT -= dt;
@@ -971,21 +998,51 @@ window.GameCore = window.GameCore || {
         }
       }
       if (e.lunge > 0) e.lunge -= dt;
+      // 회전 관성: 몸통이 순간이동하듯 꺾이지 않고 점진 회전
+      let wantYaw;
+      if (e.boss && (e.chargeState === "dash" || e.chargeState === "aim")) wantYaw = Math.atan2(e.chargeDx, e.chargeDz);
+      else if (e.boss && (e.laserState === "aim" || e.laserState === "fire")) wantYaw = Math.atan2(e.laserDx, e.laserDz);
+      else wantYaw = Math.atan2(dx, dz);
+      let dy = wantYaw - (e.yaw || 0);
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      e.yaw = (e.yaw || 0) + dy * Math.min(1, dt * 7);
       if (e.group) {
         const lungeF = e.lunge > 0 ? 0.5 : 0;
         e.group.position.set(e.x, Math.abs(Math.sin(e.walkT)) * 0.1 + lungeF * 0.3, e.z);
-        if (e.boss && (e.chargeState === "dash" || e.chargeState === "aim")) e.group.rotation.y = Math.atan2(e.chargeDx, e.chargeDz);
-        else if (e.boss && (e.laserState === "aim" || e.laserState === "fire")) e.group.rotation.y = Math.atan2(e.laserDx, e.laserDz);
-        else e.group.rotation.y = Math.atan2(dx, dz);
+        e.group.rotation.y = e.yaw;
         e.group.rotation.z = Math.sin(e.walkT * 0.5) * 0.06;
         if (window.Enemy) Enemy.updateBar(e);
       }
     }
+    // 플레이어-좀비 고체 충돌: 서로 통과하지 못하고 밀어냄
+    if (!Player.dead) {
+      for (const e of pack) {
+        if (e.dead) continue;
+        const px = Player.x - e.x, pz = Player.z - e.z;
+        const pd = Math.hypot(px, pz), minD = CONFIG.player.radius + e.r * 0.7;
+        if (pd < minD && pd > 0.001) {
+          const nx = px / pd, nz = pz / pd, over = minD - pd;
+          const ec = this.collide(e.x - nx * over * 0.7, e.z - nz * over * 0.7, e.r * 0.6);
+          e.x = ec.x; e.z = ec.z;
+          const pc = this.collide(Player.x + nx * over * 0.3, Player.z + nz * over * 0.3, CONFIG.player.radius);
+          Player.x = pc.x; Player.z = pc.z;
+        }
+      }
+    }
   },
 
-  hitEnemy(e, dmg, head) {
+  hitEnemy(e, dmg, head, dir) {
     if (!e || e.dead || this.state !== "play") return;
     e.hp -= dmg; e.flash = 0.09;
+    // 피격 물리: 총알 방향으로 넉백 + 잠깐 경직 (보스는 85% 저항)
+    if (e.hp > 0 && dir) {
+      const kb = (e.boss ? 0.12 : e.runner ? 0.5 : 0.35) * (head ? 1.4 : 1);
+      const dl = Math.hypot(dir.x || 0, dir.z || 0) || 1;
+      const c = this.collide(e.x + (dir.x || 0) / dl * kb, e.z + (dir.z || 0) / dl * kb, e.r * 0.6);
+      e.x = c.x; e.z = c.z;
+      e.stagger = e.boss ? 0.1 : 0.25;
+    }
     AudioSys.hit();
     const sp = new THREE.Vector3(e.x, head ? 2.2 : 1.4, e.z);
     this.spawnParticle(sp, 0xb03030, 7, 4, 0.5, 0.13, 4);
@@ -1507,12 +1564,12 @@ window.GameCore = window.GameCore || {
 /* ---------------- Player 3D ---------------- */
 window.Player = window.Player || {
   x: 0, z: 18, y: 0, yaw: Math.PI, pitch: -0.12,
-  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0,
+  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0, vx: 0, vz: 0,
   group: null, parts: null,
 
   reset(game) {
     this.x = 0; this.z = 18; this.yaw = Math.PI; this.pitch = -0.12;
-    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0;
+    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0; this.vx = 0; this.vz = 0;
     if (this.group && game) game.scene.remove(this.group);
     if (game) this.buildMesh(game);
   },
@@ -1628,15 +1685,25 @@ window.Player = window.Player || {
     if (Input.down("d") || Input.down("arrowright")) s += 1;
     const running = Input.down("shift");
     const sp = CONFIG.player.speed * (running ? CONFIG.player.runMult : 1) * (this.healT > 0 ? 0.5 : 1);
+    // 관성: 목표 속도로 점진 가속/감속 (즉시 정지·출발 금지)
+    let tvx = 0, tvz = 0;
     if (f || s) {
       const l = Math.hypot(f, s);
       // 카메라 forward = yaw 방향
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       const rx = -fz, rz = fx;
-      const mx = (fx * f / l + rx * s / l), mz = (fz * f / l + rz * s / l);
-      const c = game.collide(this.x + mx * sp * dt, this.z + mz * sp * dt, CONFIG.player.radius);
+      tvx = (fx * f / l + rx * s / l) * sp; tvz = (fz * f / l + rz * s / l) * sp;
+    }
+    const k = Math.min(1, dt * ((f || s) ? 8 : 11)); // 가속 8/s, 제동 11/s
+    this.vx += (tvx - this.vx) * k; this.vz += (tvz - this.vz) * k;
+    const moved = Math.hypot(this.vx, this.vz) * dt;
+    if (moved > 0.0001) {
+      const c = game.collide(this.x + this.vx * dt, this.z + this.vz * dt, CONFIG.player.radius);
+      // 벽에 부딪히면 해당 방향 속도는 0 (미끄러지듯 정지)
+      if (Math.abs(c.x - (this.x + this.vx * dt)) > 0.001) this.vx = 0;
+      if (Math.abs(c.z - (this.z + this.vz * dt)) > 0.001) this.vz = 0;
       this.x = c.x; this.z = c.z;
-      this.walkT += dt * (running ? 13 : 9);
+      this.walkT += dt * (running ? 13 : 9) * Math.min(1, Math.hypot(this.vx, this.vz) / sp);
     }
     if (this.hurtT > 0) this.hurtT -= dt;
     // 치료
