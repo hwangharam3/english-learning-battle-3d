@@ -1087,6 +1087,21 @@ window.GameCore = window.GameCore || {
     }
   },
 
+  // 웨이브 종료 보상: 플레이어 주변 바닥에 탄약 드롭
+  dropWaveAmmo(n) {
+    for (let i = 0; i < (n || 5); i++) {
+      const a = Math.random() * Math.PI * 2, d = 4 + Math.random() * 6;
+      let x = Player.x + Math.cos(a) * d, z = Player.z + Math.sin(a) * d;
+      x = Math.max(-110, Math.min(110, x)); z = Math.max(-110, Math.min(110, z));
+      if (!this.isFree(x, z, 0.6)) {
+        const p = this.ringPos(8);
+        x = p.x; z = p.z;
+      }
+      this.spawnGroundLoot("ammo", x, z);
+    }
+    if (window.UI) UI.toast("🔸 탄약이 주변에 떨어졌습니다!");
+  },
+
   next() {
     // 보스 처치 → 3번 보스면 마지막 문제 후 게임 종료, 아니면 레벨업 + 계속
     if (this._bossSpawned && this._bossDead) {
@@ -1108,7 +1123,9 @@ window.GameCore = window.GameCore || {
     this.zone.target = Math.max(16, this.zone.target * 0.88);
     this.state = "play";
     try { this.canvas.requestPointerLock(); } catch (_) {}
-    if (this.wave % 5 === 0) this.spawnBossWave();
+    const isBoss = this.wave % 5 === 0;
+    this.dropWaveAmmo(isBoss ? 8 : 5);
+    if (isBoss) this.spawnBossWave();
     else this.spawnHorde();
   },
 
