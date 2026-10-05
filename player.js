@@ -15,7 +15,7 @@ window.CONFIG = window.CONFIG || {
   helmetRed: [0, 0.30, 0.40, 0.55],
   vestRed:   [0, 0.25, 0.35, 0.50],
   bagMedMax: [2, 3, 4, 6],
-  enemies: { normalHp: 60, bossHp: 220, damage: 10, speed: 3.6, bossSpeed: 2.8, attackRange: 2.2, attackCd: 1.1 },
+  enemies: { normalHp: 60, bossHp: 1000, damage: 10, speed: 3.6, bossSpeed: 2.8, attackRange: 2.2, attackCd: 1.1, chargeDmg: 30, chargeDist: 16, chargeSpeed: 22, chargeCd: 7, chargeWarn: 2.0 },
   stage: { normalCount: 10 },
   world: { size: 240, half: 118 }
 };
@@ -484,6 +484,7 @@ window.GameCore = window.GameCore || {
     this.kills = 0; this.score = 0; this.correctCount = 0; this.wrongCount = 0;
     this.rewardsTaken = []; this.playTime = 0;
     this._bossSpawned = false; this._bossDead = false; this._pendingBoss = false;
+    this.bossLevel = 1;
     this.wave = 1; this.horde = []; this._waveCleared = false; this.reinfT = 22;
     this.totalEnemies = CONFIG.stage.normalCount;
     this.zone = { x: 0, z: 0, radius: 110, target: 110 };
@@ -498,6 +499,7 @@ window.GameCore = window.GameCore || {
   },
 
   clearField() {
+    for (const z of (this.horde || [])) { try { if (z && z._tele) this.scene.remove(z._tele); } catch (_) {} }
     for (const l of this.loots) this.scene.remove(l.group);
     this.loots = [];
     if (this.supplyCrate) { this.scene.remove(this.supplyCrate); this.supplyCrate = null; }
@@ -604,14 +606,19 @@ window.GameCore = window.GameCore || {
     this.rewardsTaken.push(k);
   },
 
-  /* 시간 + 웨이브에 따른 좀비 스탯 (쉬움 — 천천히 약하게) */
+  /* 시간 + 웨이브에 따른 좀비 스탯 (쉬움 — 천천히 약하게 / 보스는 레벨제로 강화) */
   zombieStats(kind) {
     const t = this.playTime, wv = this.wave || 1;
     const hpM = (1 + (wv - 1) * 0.15) * (1 + t / 300);
     const dmgM = Math.min(2.5, (1 + (wv - 1) * 0.12) * (1 + t / 300));
     const spdB = Math.min(2.5, (wv - 1) * 0.3 + t * 0.008);
     const atkCd = Math.max(0.7, CONFIG.enemies.attackCd - (wv - 1) * 0.04);
-    if (kind === "boss") return { hp: Math.round(CONFIG.enemies.bossHp * (1 + (wv - 1) * 0.15) * (1 + t / 400)), dmg: CONFIG.enemies.damage * 1.6 * dmgM, speed: CONFIG.enemies.bossSpeed + spdB * 0.8, atkCd: 1.0, scl: 1.45 };
+    if (kind === "boss") {
+      const bl = this.bossLevel || 1;
+      const hp = Math.round(1000 * (1 + (bl - 1) * 0.5) * (1 + (wv - 1) * 0.05));
+      const dmg = CONFIG.enemies.damage * 1.6 * dmgM * (1 + (bl - 1) * 0.2);
+      return { hp, dmg, speed: CONFIG.enemies.bossSpeed + spdB * 0.8, atkCd: 1.0, scl: 1.45 };
+    }
     if (kind === "runner") return { hp: Math.round(35 * hpM), dmg: 7 * dmgM, speed: 6.0 + spdB * 0.7, atkCd: 0.8, scl: 0.62 };
     return { hp: Math.round(CONFIG.enemies.normalHp * hpM), dmg: CONFIG.enemies.damage * dmgM, speed: CONFIG.enemies.speed + spdB, atkCd, scl: 1.0 };
   },
@@ -632,7 +639,8 @@ window.GameCore = window.GameCore || {
       boss: kind === "boss", runner: kind === "runner", scl: st.scl,
       speed: st.speed, dmg: st.dmg, atkCd: st.atkCd,
       hitT: Math.random() * 0.5, dead: false, walkT: Math.random() * 5, flash: 0, lunge: 0,
-      stuckT: 0, detourT: 0, detourDir: 1
+      stuckT: 0, detourT: 0, detourDir: 1,
+      chargeState: "chase", chargeT: 0, chargeCd: 3, chargeDx: 0, chargeDz: 1, chargeHitDone: false, _tele: null
     };
     e.group = window.Enemy ? Enemy.buildMesh(e) : null;
     if (e.group) { e.group.position.set(x, 0, z); this.scene.add(e.group); }
@@ -659,12 +667,14 @@ window.GameCore = window.GameCore || {
 
   spawnBossWave() {
     this._bossSpawned = true;
+    this._bossDead = false;
     this._waveCleared = false;
     this.reinfT = 20;
+    const bl = this.bossLevel || 1;
     const pb = this.ringPos(30);
     this.spawnOneZombie(pb.x, pb.z, "boss");
     { const p = this.ringPos(); this.spawnOneZombie(p.x, p.z, "normal"); }
-    if (window.UI) UI.banner("☠ 거대 좀비", "보스를 쓰러뜨리면 마지막 영어 문제!", 1600);
+    if (window.UI) UI.banner("☠ 거대 좀비 LV." + bl, "빨간 범위 예고 후 돌진! 맞으면 HP -" + (CONFIG.enemies.chargeDmg || 30), 2000);
   },
 
   /* 장애물 우회 이동: 직진이 막히면 각도를 틀어 돌아감 */
@@ -712,6 +722,91 @@ window.GameCore = window.GameCore || {
     }
   },
 
+  /* 보스 돌진: 2초간 빨간 범위로 예고 → 돌진 (맞으면 30) */
+  startBossTelegraph(e) {
+    this.clearBossTelegraph(e);
+    try {
+      const dist = CONFIG.enemies.chargeDist || 16;
+      const geo = new THREE.PlaneGeometry(2.6, dist);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false });
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.y = Math.atan2(e.chargeDx, e.chargeDz);
+      m.position.set(e.x + e.chargeDx * dist / 2, 0.09, e.z + e.chargeDz * dist / 2);
+      m.renderOrder = 4;
+      this.scene.add(m);
+      e._tele = m;
+    } catch (_) { e._tele = null; }
+  },
+
+  clearBossTelegraph(e) {
+    try { if (e && e._tele) this.scene.remove(e._tele); } catch (_) {}
+    if (e) e._tele = null;
+  },
+
+  clearAllTelegraphs() {
+    for (const z of (this.horde || [])) {
+      try { if (z && z._tele) this.scene.remove(z._tele); } catch (_) {}
+      if (z) z._tele = null;
+    }
+  },
+
+  // true를 반환하면 일반 이동/근접공격을 스킵 (돌진 연출이 처리함)
+  updateBoss(e, dt, d, dx, dz) {
+    const cfg = CONFIG.enemies;
+    e.chargeCd = Math.max(0, (e.chargeCd || 0) - dt);
+    if (e.chargeState === "aim") {
+      e.chargeT -= dt;
+      if (e._tele) {
+        try { e._tele.material.opacity = 0.35 + 0.2 * Math.sin(performance.now() / 120); } catch (_) {}
+      }
+      if (e.chargeT <= 0) {
+        e.chargeState = "dash";
+        e.chargeT = (cfg.chargeDist || 16) / (cfg.chargeSpeed || 22);
+        e.chargeHitDone = false;
+        this.clearBossTelegraph(e);
+        if (window.UI) UI.toast("☠ 보스 돌진!");
+        if (window.AudioSys) AudioSys.noise(0.25, 0.2, 500);
+      }
+      return true; // 조준 중에는 제자리 (빨간 범위에서 피할 시간)
+    }
+    if (e.chargeState === "dash") {
+      const step = (cfg.chargeSpeed || 22) * dt;
+      const nx = e.x + (e.chargeDx || 0) * step, nz = e.z + (e.chargeDz || 0) * step;
+      const c = this.collide(nx, nz, e.r * 0.6);
+      e.x = c.x; e.z = c.z;
+      e.chargeT -= dt;
+      const pd = Math.hypot(Player.x - e.x, Player.z - e.z);
+      if (!e.chargeHitDone && pd < 2.4) {
+        e.chargeHitDone = true;
+        Player.takeDamage(cfg.chargeDmg || 30, this, true);
+        if (window.UI) UI.toast("💥 보스 돌진 적중! HP -" + (cfg.chargeDmg || 30));
+      }
+      if (Math.random() < 0.6) {
+        try { this.spawnParticle(new THREE.Vector3(e.x, 0.5, e.z), 0xff4444, 2, 3, 0.4, 0.14, 3); } catch (_) {}
+      }
+      if (e.chargeT <= 0) {
+        e.chargeState = "cool";
+        e.chargeCd = cfg.chargeCd || 7;
+      }
+      return true;
+    }
+    // 추적 중: 쿨다운이 끝나고 거리가 맞으면 돌진 예고 시작
+    if ((e.chargeState === "chase" || e.chargeState === "cool") && (e.chargeCd || 0) <= 0) {
+      if (d > 6 && d < 30) {
+        const dd = d || 1;
+        e.chargeDx = dx / dd; e.chargeDz = dz / dd;
+        e.chargeState = "aim";
+        e.chargeT = cfg.chargeWarn || 2.0;
+        this.startBossTelegraph(e);
+        if (window.UI) UI.toast("⚠ 보스가 돌진을 준비합니다! 빨간 범위에서 벗어나세요");
+        return true;
+      }
+      if (e.chargeState === "cool") e.chargeState = "chase";
+    }
+    return false;
+  },
+
   updateHorde(dt) {
     const pack = this.horde || [];
     // 좀비끼리 겹치지 않게 밀어내기
@@ -734,7 +829,9 @@ window.GameCore = window.GameCore || {
       const dx = Player.x - e.x, dz = Player.z - e.z;
       const d = Math.hypot(dx, dz) || 1;
       e.walkT += dt * (5 + e.speed * 0.7);
-      if (d > CONFIG.enemies.attackRange) {
+      if (e.boss && this.updateBoss(e, dt, d, dx, dz)) {
+        // 돌진 연출 중: 이동/공격은 updateBoss가 처리
+      } else if (d > CONFIG.enemies.attackRange) {
         this.moveZombie(e, dx, dz, d, dt);
       } else {
         // 일정 거리 안에 들어오면 공격
@@ -749,7 +846,8 @@ window.GameCore = window.GameCore || {
       if (e.group) {
         const lungeF = e.lunge > 0 ? 0.5 : 0;
         e.group.position.set(e.x, Math.abs(Math.sin(e.walkT)) * 0.1 + lungeF * 0.3, e.z);
-        e.group.rotation.y = Math.atan2(dx, dz);
+        if (e.boss && (e.chargeState === "dash" || e.chargeState === "aim")) e.group.rotation.y = Math.atan2(e.chargeDx, e.chargeDz);
+        else e.group.rotation.y = Math.atan2(dx, dz);
         e.group.rotation.z = Math.sin(e.walkT * 0.5) * 0.06;
         if (window.Enemy) Enemy.updateBar(e);
       }
@@ -766,8 +864,8 @@ window.GameCore = window.GameCore || {
     if (window.UI) UI.spawnDmg(e.x, head ? 2.5 : 1.8, e.z, "-" + Math.round(dmg), head ? "#ffd166" : "#fff");
     if (e.hp <= 0) {
       e.dead = true; e.hp = 0;
-      this.kills++; this.score += e.boss ? 300 : 100;
-      if (e.boss) this._bossDead = true;
+      this.kills++; this.score += e.boss ? 500 : 100;
+      if (e.boss) { this._bossDead = true; this.clearBossTelegraph(e); }
       this.addShake(0.5);
       this.spawnParticle(new THREE.Vector3(e.x, 1.2, e.z), 0x7a1f1f, 18, 6, 0.9, 0.16, 5);
       if (window.Enemy) Enemy.setDead(e);
@@ -804,28 +902,26 @@ window.GameCore = window.GameCore || {
   },
 
   next() {
+    // 보스 처치 → 끝내지 않고 보스 레벨업 + 무한 웨이브 계속 (점점 어려워짐)
     if (this._bossSpawned && this._bossDead) {
-      // 마지막 문제 (오답 데미지는 UI에서 이미 적용됨)
-      this.state = "bossQuestion";
-      QuestionSys.show(this.wave, ok => {
-        if (ok) { this.correctCount++; this.clear(); }
-        else { this.wrongCount++; this.gameOver(); }
-      });
-      return;
-    }
-    if (this.kills >= this.totalEnemies && !this._bossSpawned) {
-      // 보스 웨이브 소환
+      this.bossLevel = (this.bossLevel || 1) + 1;
+      this._bossSpawned = false; this._bossDead = false;
+      this.score += 500;
+      if (window.UI) UI.banner("☠ 보스 처치!", "LV." + this.bossLevel + " — 더 강한 웨이브가 계속됩니다", 2000);
+    } else if (this.kills >= this.totalEnemies && !this._bossSpawned && (this.bossLevel || 1) === 1) {
+      // 첫 보스 웨이브 소환 (1회)
       this.state = "play";
       try { this.canvas.requestPointerLock(); } catch (_) {}
       this.spawnBossWave();
       return;
     }
-    // 다음 웨이브 (구역 축소 + 난이도 상승)
+    // 다음 웨이브 (구역 축소 + 난이도 상승 / 5웨이브마다 보스)
     this.wave = (this.wave || 1) + 1;
     this.zone.target = Math.max(16, this.zone.target * 0.88);
     this.state = "play";
     try { this.canvas.requestPointerLock(); } catch (_) {}
-    this.spawnHorde();
+    if (this.wave % 5 === 0) this.spawnBossWave();
+    else this.spawnHorde();
   },
 
   /* ---------- 배그식 기본 훈련 (튜토리얼) ---------- */
@@ -1117,6 +1213,7 @@ window.GameCore = window.GameCore || {
 
   gameOver() {
     this.state = "gameover";
+    try { this.clearAllTelegraphs(); } catch (_) {}
     try { document.exitPointerLock && document.exitPointerLock(); } catch (_) {}
     QuestionSys.hide(); RewardSys.hide();
     if (window.UI) UI.showEnd(false, this);
