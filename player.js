@@ -511,11 +511,16 @@ window.GameCore = window.GameCore || {
   },
 
   spawnLootField() {
-    const kinds = ["helmet2", "vest2", "medkit", "ammo", "scope", "grip", "helmet1", "bag1", "muzzle", "extmag"];
-    for (let i = 0; i < 16; i++) {
+    const kinds = ["helmet2", "vest2", "medkit", "ammo", "ammo", "ammo", "ammo", "ammo", "scope", "grip", "helmet1", "bag1", "muzzle", "extmag"];
+    for (let i = 0; i < 24; i++) {
       const k = kinds[Math.floor(Math.random() * kinds.length)];
       const x = (Math.random() - 0.5) * 160, z = (Math.random() - 0.5) * 160;
       this.spawnGroundLoot(k, x, z);
+    }
+    // 시작 지점 주변에 탄약 확정 드롭 (바로 주울 수 있게)
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      this.spawnGroundLoot("ammo", Player.x + Math.cos(a) * (5 + Math.random() * 4), Player.z + Math.sin(a) * (5 + Math.random() * 4));
     }
   },
 
