@@ -15,7 +15,7 @@ window.CONFIG = window.CONFIG || {
   helmetRed: [0, 0.30, 0.40, 0.55],
   vestRed:   [0, 0.25, 0.35, 0.50],
   bagMedMax: [2, 3, 4, 6],
-  enemies: { normalHp: 60, bossHp: 1000, damage: 10, speed: 3.6, bossSpeed: 2.8, attackRange: 2.2, attackCd: 1.1, chargeDmg: 30, chargeDist: 16, chargeSpeed: 22, chargeCd: 7, chargeWarn: 2.0 },
+  enemies: { normalHp: 60, bossHp: 1000, damage: 10, speed: 3.6, bossSpeed: 2.8, attackRange: 2.2, attackCd: 1.1, chargeDmg: 30, chargeDist: 26, chargeSpeed: 22, chargeCd: 7, chargeWarn: 2.0 },
   stage: { normalCount: 10 },
   world: { size: 240, half: 118 }
 };
