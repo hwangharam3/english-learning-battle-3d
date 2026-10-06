@@ -218,22 +218,49 @@ window.GameCore = window.GameCore || {
     r.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
+    // 배그풍 색감: sRGB + 영화 톤매핑
+    try {
+      r.outputEncoding = THREE.sRGBEncoding;
+      r.toneMapping = THREE.ACESFilmicToneMapping;
+      r.toneMappingExposure = 1.15;
+    } catch (_) {}
     this.renderer = r;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87b5e0);
-    this.scene.fog = new THREE.Fog(0x9fc3e2, 60, 220);
-    this.camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500);
+    this.scene.fog = new THREE.Fog(0xc3d3e2, 70, 240);
+    this.camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 900);
     this.camera.position.set(0, 4, 10);
     this.tmpV = new THREE.Vector3();
-    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x6a7f56, 0.95);
+    // 그라데이션 하늘 돔 (수평선 웜톤 → 천정 딥블루)
+    try {
+      const sc = document.createElement("canvas"); sc.width = 2; sc.height = 256;
+      const sg = sc.getContext("2d");
+      const gr = sg.createLinearGradient(0, 0, 0, 256);
+      gr.addColorStop(0.0, "#2f5f9e");
+      gr.addColorStop(0.45, "#7fb0dd");
+      gr.addColorStop(0.62, "#cfdde9");
+      gr.addColorStop(0.68, "#e8e4d2");
+      gr.addColorStop(0.72, "#6a7f56");
+      gr.addColorStop(1.0, "#4d5c3d");
+      sg.fillStyle = gr; sg.fillRect(0, 0, 2, 256);
+      const st = new THREE.CanvasTexture(sc);
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(420, 24, 16),
+        new THREE.MeshBasicMaterial({ map: st, side: THREE.BackSide, fog: false, depthWrite: false })
+      );
+      dome.renderOrder = -10;
+      this.scene.add(dome);
+    } catch (_) {}
+    const hemi = new THREE.HemisphereLight(0xbcd8ff, 0x5a6b45, 0.75);
     this.scene.add(hemi);
-    this.sun = new THREE.DirectionalLight(0xfff2d8, 1.05);
-    this.sun.position.set(40, 70, 25);
+    this.sun = new THREE.DirectionalLight(0xffedd0, 1.35);
+    this.sun.position.set(55, 62, 30);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.camera.left = -80; this.sun.shadow.camera.right = 80;
     this.sun.shadow.camera.top = 80; this.sun.shadow.camera.bottom = -80;
-    this.sun.shadow.camera.far = 220;
+    this.sun.shadow.camera.far = 260;
+    this.sun.shadow.bias = -0.0006;
     this.scene.add(this.sun);
     // 구름
     for (let i = 0; i < 10; i++) {
@@ -248,17 +275,34 @@ window.GameCore = window.GameCore || {
   },
 
   grassTexture() {
-    const cv = document.createElement("canvas"); cv.width = cv.height = 256;
+    const cv = document.createElement("canvas"); cv.width = cv.height = 512;
     const g = cv.getContext("2d");
-    g.fillStyle = "#7d9159"; g.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 900; i++) {
-      g.fillStyle = ["#6d8148", "#8aa066", "#75895a", "#93a86e"][i % 4];
+    g.fillStyle = "#77875a"; g.fillRect(0, 0, 512, 512);
+    // 큰 얼룩 (잔디 결)
+    for (let i = 0; i < 90; i++) {
+      g.fillStyle = ["#6b7d4f", "#82936a", "#707f52", "#8b9a6b"][i % 4];
+      g.globalAlpha = 0.28;
+      const r = 14 + Math.random() * 42;
+      g.beginPath(); g.ellipse(Math.random() * 512, Math.random() * 512, r, r * (0.5 + Math.random() * 0.6), Math.random() * 3, 0, 7); g.fill();
+    }
+    // 흙 패치
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = "#8a7f63";
+      g.globalAlpha = 0.16;
+      const r = 6 + Math.random() * 18;
+      g.beginPath(); g.ellipse(Math.random() * 512, Math.random() * 512, r, r * 0.7, Math.random() * 3, 0, 7); g.fill();
+    }
+    // 잔디 결 스펙클
+    for (let i = 0; i < 2600; i++) {
+      g.fillStyle = ["#5f7046", "#93a471", "#6d7f50", "#a3b184"][i % 4];
       g.globalAlpha = 0.5;
-      g.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 5, 2 + Math.random() * 5);
+      g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 3, 2 + Math.random() * 5);
     }
     g.globalAlpha = 1;
     const t = new THREE.CanvasTexture(cv);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(24, 24);
+    try { t.encoding = THREE.sRGBEncoding; } catch (_) {}
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(28, 28);
+    t.anisotropy = 4;
     return t;
   },
 
