@@ -145,7 +145,7 @@ const UI = {
       '<div id="wbox"><div class="wn" id="wname">기본 소총</div>' +
         '<div class="ammo"><span id="mag">12</span><small> / <span id="reserve">90</span></small></div>' +
         '<div class="sub">💊 <span id="med">1</span> · 🔧부스트 <span id="boost">0</span> · <span id="slots">1번</span></div>' +
-        '<div class="hint"><kbd>WASD</kbd> 이동 <kbd>Shift</kbd> 달리기 · 클릭/<kbd>↑</kbd> 발사 · 우클릭 정조준 · <kbd>←→</kbd> 시점<br><kbd>R</kbd> 재장전 <kbd>H</kbd> 구급상자 <kbd>F</kbd> 줍기 <kbd>Tab</kbd> 장비 <kbd>1/2/휠</kbd> 무기교체</div></div>' +
+        '<div class="hint"><kbd>WASD</kbd> 이동 <kbd>Shift</kbd> 달리기 · 클릭/<kbd>↑</kbd> 발사 · 우클릭 정조준 · <kbd>←→</kbd> 시점 · <kbd>Q</kbd>/<kbd>E</kbd> 기울이기<br><kbd>R</kbd> 재장전 <kbd>H</kbd> 구급상자 <kbd>F</kbd> 줍기 <kbd>Tab</kbd> 장비 <kbd>1/2/휠</kbd> 무기교체</div></div>' +
       '<div id="minimap-wrap"><canvas id="minimap" width="190" height="190"></canvas>' +
         '<div id="minimap-legend">▲ 플레이어 · <span style="color:#ff6b6b">●</span> 좀비 · <span style="color:#ffd166">●</span> 아이템<br>○ 흰 원 안으로 이동!</div></div>' +
       '<div id="cross"><div class="dot"></div></div>' +

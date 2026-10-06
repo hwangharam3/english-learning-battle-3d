@@ -1643,12 +1643,12 @@ window.GameCore = window.GameCore || {
 /* ---------------- Player 3D ---------------- */
 window.Player = window.Player || {
   x: 0, z: 18, y: 0, yaw: Math.PI, pitch: -0.12,
-  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0, vx: 0, vz: 0, _sprintB: 0, _aimB: 0,
+  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0, vx: 0, vz: 0, _sprintB: 0, _aimB: 0, _leanB: 0,
   group: null, parts: null,
 
   reset(game) {
     this.x = 0; this.z = 18; this.yaw = Math.PI; this.pitch = -0.12;
-    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0; this.vx = 0; this.vz = 0; this._sprintB = 0; this._aimB = 0;
+    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0; this.vx = 0; this.vz = 0; this._sprintB = 0; this._aimB = 0; this._leanB = 0;
     if (this.group && game) game.scene.remove(this.group);
     if (game) this.buildMesh(game);
   },
@@ -1757,6 +1757,11 @@ window.Player = window.Player || {
     this.pitch -= Input.mouse.dy * sens;
     if (Input.down("arrowleft")) this.yaw += 1.8 * dt;
     if (Input.down("arrowright")) this.yaw -= 1.8 * dt;
+    // Q/E 기울이기 (배그식 피킹)
+    let leanT = 0;
+    if (Input.down("q")) leanT -= 1;
+    if (Input.down("e")) leanT += 1;
+    this._leanB += (leanT - this._leanB) * Math.min(1, dt * 10);
     this.pitch = Math.max(-1.05, Math.min(0.55, this.pitch));
     // 이동 (카메라 기준: ↑발사·←→시점이므로 화살표는 ↓후진만 사용)
     let f = 0, s = 0;
@@ -1834,8 +1839,8 @@ window.Player = window.Player || {
           ga.rotation.z = 0.5 * dip + (relP >= 0.3 && relP <= 0.7 ? Math.sin(relP * 42) * 0.06 : 0);
         }
       }
-      // 전신: 좌우 이동시 기울기
-      this.group.rotation.z = -s * 0.055 * spdF;
+      // 전신: 좌우 이동 + Q/E 기울이기
+      this.group.rotation.z = -s * 0.055 * spdF - (this._leanB || 0) * 0.16;
     }
     this.updateCamera(game, dt);
   },
@@ -1861,15 +1866,18 @@ window.Player = window.Player || {
     const cx = this.x + Math.sin(this.yaw) * cp * dist;
     const cz = this.z + Math.cos(this.yaw) * cp * dist;
     const cy = 2.1 - sp2 * dist;
-    // 어깨 오프셋
+    // 어깨 오프셋 + Q/E 기울이기 (카메라 측면 이동 + 화면 기울기)
+    const lean = this._leanB || 0;
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
-    game.camera.position.set(cx + rx * 0.85, Math.max(0.7, cy + 0.25), cz + rz * 0.85);
+    const sh = 0.85 + lean * 0.6;
+    game.camera.position.set(cx + rx * sh, Math.max(0.7, cy + 0.25) - Math.abs(lean) * 0.12, cz + rz * sh);
     const look = new THREE.Vector3(
-      this.x - Math.sin(this.yaw) * 8 * cp + rx * 0.85,
-      1.55 + sp2 * 8,
-      this.z - Math.cos(this.yaw) * 8 * cp + rz * 0.85
+      this.x - Math.sin(this.yaw) * 8 * cp + rx * sh,
+      1.55 + sp2 * 8 - Math.abs(lean) * 0.1,
+      this.z - Math.cos(this.yaw) * 8 * cp + rz * sh
     );
     game.camera.lookAt(look);
+    if (Math.abs(lean) > 0.01) game.camera.rotateZ(-lean * 0.09);
     // 태양이 플레이어 따라오게 (그림자 범위 유지)
     if (game.sun) game.sun.position.set(this.x + 40, 70, this.z + 25);
     if (game.sun) game.sun.target.position.set(this.x, 0, this.z);

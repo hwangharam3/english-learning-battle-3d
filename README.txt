@@ -4,7 +4,7 @@
 1. index.html을 더블클릭으로 엽니다. (three.min.js 포함되어 인터넷 없어도 실행됨)
 2. [🎓 기본 훈련] 또는 [전장에 투입!] 클릭 → 화면 클릭으로 마우스 잠금 (Esc 해제)
 3. WASD 이동 · Shift 달리기 · 마우스/←→ 시점 · 클릭/↑ 발사 · 우클릭 정조준
-4. R 재장전 · H 구급상자 · F 줍기 · Tab 장비창 · 1/2/휠 무기교체
+4. R 재장전 · H 구급상자 · F 줍기 · Tab 장비창 · 1/2/휠 무기교체 · Q/E 기울이기
 
 다른 사람에게 공유하기:
 - 이 폴더 전체(index.html, three.min.js, player.js, question.js, reward.js, ui.js, weapon.js)를 그대로 ZIP으로 압축해서 전달하세요.
