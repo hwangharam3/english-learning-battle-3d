@@ -628,7 +628,7 @@ window.GameCore = window.GameCore || {
       return { hp, dmg, speed: CONFIG.enemies.bossSpeed + spdB * 0.8, atkCd: 1.0, scl: 1.45 };
     }
     if (kind === "runner") return { hp: Math.round(35 * hpM), dmg: 7 * dmgM, speed: 6.0 + spdB * 0.7, atkCd: 0.8, scl: 0.62 };
-    return { hp: Math.round(CONFIG.enemies.normalHp * hpM), dmg: CONFIG.enemies.damage * dmgM, speed: CONFIG.enemies.speed + spdB, atkCd, scl: 1.0 };
+    return { hp: Math.round(CONFIG.enemies.normalHp * hpM), dmg: 20 * dmgM, speed: CONFIG.enemies.speed + spdB, atkCd, scl: 1.0 };
   },
 
   hordeAlive() { return (this.horde || []).filter(z => !z.dead).length; },
