@@ -1643,12 +1643,12 @@ window.GameCore = window.GameCore || {
 /* ---------------- Player 3D ---------------- */
 window.Player = window.Player || {
   x: 0, z: 18, y: 0, yaw: Math.PI, pitch: -0.12,
-  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0, vx: 0, vz: 0,
+  hp: 100, dead: false, healT: 0, hurtT: 0, walkT: 0, vx: 0, vz: 0, _sprintB: 0, _aimB: 0,
   group: null, parts: null,
 
   reset(game) {
     this.x = 0; this.z = 18; this.yaw = Math.PI; this.pitch = -0.12;
-    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0; this.vx = 0; this.vz = 0;
+    this.hp = CONFIG.player.maxHp; this.dead = false; this.healT = 0; this.hurtT = 0; this.walkT = 0; this.vx = 0; this.vz = 0; this._sprintB = 0; this._aimB = 0;
     if (this.group && game) game.scene.remove(this.group);
     if (game) this.buildMesh(game);
   },
@@ -1801,17 +1801,41 @@ window.Player = window.Player || {
         }
       }
     }
-    // 메시 반영
+    // 메시 반영 (배그식 절차 모션: 스프린트 총내림·조준 총올림·재장전 기울임·발사 반동)
     if (this.group) {
       this.group.position.set(this.x, 0, this.z);
       this.group.rotation.y = this.yaw + Math.PI;
-      const sw = Math.sin(this.walkT) * ((f || s) ? 0.45 : 0);
+      const spdF = Math.min(1, Math.hypot(this.vx, this.vz) / CONFIG.player.speed);
+      this._sprintB += (((running && f > 0) ? 1 : 0) - this._sprintB) * Math.min(1, dt * 6);
+      this._aimB += ((Input.mouse.rdown ? 1 : 0) - this._aimB) * Math.min(1, dt * 10);
+      const W = window.Weapon;
+      const relP = (W && W.reloading > 0 && W.reloadTotal > 0) ? 1 - W.reloading / W.reloadTotal : -1;
+      const dip = relP >= 0 ? Math.sin(relP * Math.PI) : 0; // 재장전 진행 곡선
+      const kick = W ? Math.min(1, W.spreadBloom || 0) : 0;
+      const B = this._sprintB * (1 - this._aimB), A = this._aimB;
+      const sw = Math.sin(this.walkT) * 0.5 * spdF;
       if (this.parts) {
-        this.parts.legL.rotation.x = sw;
-        this.parts.legR.rotation.x = -sw;
-        this.parts.armL.rotation.x = -sw * 0.7;
-        this.parts.torso.position.y = 1.22 + Math.abs(Math.sin(this.walkT)) * 0.03;
+        const P = this.parts;
+        P.legL.rotation.x = sw * (1 + this._sprintB * 0.35);
+        P.legR.rotation.x = -sw * (1 + this._sprintB * 0.35);
+        P.armL.rotation.x = -sw * 0.7 * (1 - A * 0.6);
+        // 오른팔: 조준시 개머리판 밀착, 스프린트시 이완, 재장전시 탄창 조작, 발사시 반동
+        P.armR.rotation.x = -1.1 - 0.15 * A + 0.55 * B - 0.35 * dip
+          + (relP >= 0.3 && relP <= 0.7 ? Math.sin(relP * 42) * 0.09 : 0) - kick * 0.22;
+        // 상체: 스프린트 전방 기울기 + 재장전 숙임
+        P.torso.rotation.x = this._sprintB * 0.1 + dip * 0.26;
+        P.torso.position.y = 1.22 + Math.abs(Math.sin(this.walkT)) * 0.035 * spdF - dip * 0.06;
+        P.head.rotation.x = -this._sprintB * 0.06 + A * 0.05;
+        // 총: 스프린트 내림 / 조준 올림 / 재장전 기울임 / 발사 뒤튐
+        const ga = P.gunAnchor;
+        if (ga) {
+          ga.position.set(0.35 + 0.05 * B - 0.16 * A, 1.35 - 0.2 * B + 0.1 * A - 0.12 * dip, 0.5 - 0.05 * A + kick * 0.05);
+          ga.rotation.x = 0.5 * B - 0.06 * A + 0.45 * dip;
+          ga.rotation.z = 0.5 * dip + (relP >= 0.3 && relP <= 0.7 ? Math.sin(relP * 42) * 0.06 : 0);
+        }
       }
+      // 전신: 좌우 이동시 기울기
+      this.group.rotation.z = -s * 0.055 * spdF;
     }
     this.updateCamera(game, dt);
   },
